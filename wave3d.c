@@ -12,73 +12,95 @@
 #include <GL/glext.h>
 
 #define grid_width 500
-#define pixel_size 5
+#define pixel_size 1
 #define num_waves 2
 #define num_walls 5
-#define damping_multiplier 0.00001
+#define damping_multiplier 0.0000001
 #define amplitude_multiplier 10
-#define timestep .2
-float wave_locations_x[200] = {10,50};
-float wave_locations_y[200] = {10,50};
+#define timestep .03
+#define wave_speed 1000
+float wave_locations_x[200] = {grid_width/2,grid_width/2};
+float wave_locations_y[200] = {grid_width/2,grid_width/2+50};
+float wave_locations_z[200] = {grid_width/2,grid_width/2};
+float wave_period[num_waves] = {0.5,0.5,0.3};
 
-float wave_frequencies[200] = {1,0.23};
-float wave_phases[200] = {0.5,0.0};
-
-float material_x[200] = {50,51,52,53,54,55,56};
-float material_y[200] = {30,30,30,30,30,30,30};
-float material_refractive[200] = {1,1,1,1,1,1,1,1,1};
+float wave_frequencies[200] = {0,0};
+float wave_phases[200] = {3.14,-3.14};
 
 void update() {
    glutPostRedisplay();
 }
 
-void drawRect(float x, float y, float width, float height) {
-    glBegin(GL_QUADS);
-        glVertex2f(x, y);
-        glVertex2f(x + width, y);
-        glVertex2f(x + width, y + height);
-        glVertex2f(x, y + height);
-    glEnd();
+void initGL() {
+   glClearColor(1.0f, 1.0f, 1.0f, 1.0f); // Set background color to black and opaque
+   glClearDepth(1.0f);                   // Set background depth to farthest
+   glEnable(GL_DEPTH_TEST);   // Enable depth testing for z-culling
+   glDepthFunc(GL_LEQUAL);    // Set the type of depth-test
+   glShadeModel(GL_SMOOTH);   // Enable smooth shading
+   glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);  // Nice perspective corrections
 }
+
 
 int main(int argc, char** argv){
 	glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
-    glutInitWindowSize(grid_width*pixel_size, grid_width*pixel_size);
+    glEnable(GL_MULTISAMPLE);
+    glutInitWindowSize(500, 500);
     glutCreateWindow("Genetic");
-	glViewport(0, 0, grid_width*pixel_size, grid_width*pixel_size);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0.0f, grid_width*pixel_size, 0.0f, grid_width*pixel_size, 0.0f, 1.0f);
-    glMatrixMode (GL_MODELVIEW);
-    glLoadIdentity();
-    glColor3f(1.0f, 1.0f, 1.0f);
+	glViewport(0, 0, 500, 500);
+    initGL();
     float t = 0;
     while(1){
     	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	    glLoadIdentity();
-	    for(int x=0;x<grid_width;x++){//y
+//
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    GLint viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+    double aspect = (double)viewport[2] / (double)viewport[3];
+    gluPerspective(60, aspect, 1, 400);
+
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    // move back a bit
+    //glTranslatef(-100*t,0,-1);
+
+    glTranslatef(0,0, -200);
+    glRotatef(t*50, 0.1, 0.1, 0);
+    glTranslatef(-grid_width/2,-grid_width/2, -grid_width/2);
+   	    for(int x=0;x<grid_width;x++){//y
 	    	for(int y=0;y<grid_width;y++){//x
-	    		for(int z=0;z<grid_width;z++){//x
+	    		for(int z=100;z<110;z++){//x
 		    		float amplitude = 0;
 		    		for(int wave = 0;wave<num_waves;wave++){
-		    			float distance = pow(wave_locations_x[wave]-x,2)+pow(wave_locations_y[wave]-y,2);
-		    			amplitude += sin(t*wave_frequencies[wave]+wave_phases[wave])*sin(sqrtf(distance))*(1/(damping_multiplier*distance)*amplitude_multiplier); //* for some cool patterns
+		    			float distance = pow(wave_locations_x[wave]-x,2)+pow(wave_locations_y[wave]-y,2)+pow(wave_locations_z[wave]-z,2);
+		    			if(distance < t*wave_speed){
+		    				amplitude += sin(t*wave_frequencies[wave]+wave_phases[wave])*sin(sqrtf(distance)*wave_period[wave])*(1/(damping_multiplier*distance)*amplitude_multiplier); //* for some cool patterns
+		        		}
 		        	}
 		        	if(amplitude > 0){
-		        		glColor3f(amplitude/100.0,0.0f, amplitude);
+		        		glPushMatrix();
+					        glTranslatef(x*pixel_size,y*pixel_size,z*pixel_size);
+					        glColor3ub(255,(x/(float)grid_width)*255.0,(z/(float)grid_width)*255.0);
+					        glutWireCube(pixel_size);
+					    glPopMatrix();
 		        	}
-		        	else{
-		        		//continue;
-		        		glColor3f(0.0f,-amplitude/30.0,0.0f);
-		        	}
-		        	drawRect(x*pixel_size,y*pixel_size,pixel_size,pixel_size);
+		       //  	else{
+		       //  		glPushMatrix();
+					    //     glTranslatef(x*pixel_size,y*pixel_size,z*pixel_size);
+					    //     glColor3ub(0,0,(amplitude/10.0)*255.0);
+					    //     glutSolidCube(pixel_size);
+					    // glPopMatrix();
+		       //  	}
 		        }
 	        }
 	    }
+    	//glTranslatef(-grid_width/2,-grid_width/2, -grid_width/2);
 	    glutSwapBuffers();
 		update(0);
 		t+=timestep;
+		glPopMatrix();
 	}
 }
 
