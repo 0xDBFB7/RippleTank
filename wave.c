@@ -11,15 +11,18 @@
 #include <GL/glu.h>
 #include <GL/glext.h>
 
-#define grid_width 1920*2
-#define grid_length 1080*2
-#define pixel_size 0.5
-#define num_waves 2
-#define damping_multiplier 0.00001
-#define amplitude_multiplier 1
-#define timestep .05
-#define wave_speed 1000.0
+#include <GL/freeglut.h>
 
+
+#define grid_width 1920
+#define grid_length 1080
+#define grid_density 3
+#define pixel_size 1
+int num_waves = 2;
+float damping_multiplier = 0.0001;
+#define amplitude_multiplier 1
+#define timestep .01
+#define wave_speed 1000.0
 int shot_counter = 0;
 
 float wave_locations_x[200] = {grid_width/2+300,grid_width/2-30};
@@ -27,12 +30,23 @@ float wave_locations_y[200] = {grid_length/2,grid_length/2};
 
 float wave_frequencies[200] = {0.4,0.3};
 float wave_phases[200] = {0.31,0.31};
-float wave_periods[num_waves] = {0.3,0.3};
-float wave_powers[num_waves] = {1,1,1};
+float wave_periods[200] = {0.3,0.3};
+float wave_powers[200] = {1,1,1};
 
 float material_x[200] = {50,51,52,53,54,55,56};
 float material_y[200] = {30,30,30,30,30,30,30};
 float material_refractive[200] = {1,1,1,1,1,1,1,1,1};
+
+int button = 0;
+int mouse_x = 0;
+int mouse_y = 0;
+char key;
+
+float shading_threshold = 20;
+
+float shading_multiplier = 1;
+
+int selected_wave = 0;
 
 void update() {
    glutPostRedisplay();
@@ -95,6 +109,16 @@ void drawRect(float x, float y, float width, float height) {
     glEnd();
 }
 
+void mouse( int x, int y){
+	mouse_x = x;
+	mouse_y = y;
+}
+
+void keyboard(unsigned char pressed, int x, int y){
+	key = pressed;
+	mouse_x = x;
+	mouse_y = y;
+}
 
 
 int main(int argc, char** argv){
@@ -112,27 +136,52 @@ int main(int argc, char** argv){
     glColor3f(1.0f, 1.0f, 1.0f);
 	glEnable(GL_MULTISAMPLE_ARB);
     float t = 0;
+   	glutKeyboardFunc(keyboard);
+   	glutPassiveMotionFunc(mouse);
     while(1){
+    	if(key == 'q'){
+	    	selected_wave++;
+	    	if(selected_wave == num_waves+1){
+	    		selected_wave = 0;
+	    	}
+	    }
+	    if(key == 'm'){
+	    	wave_locations_x[selected_wave] = mouse_x;
+	    	wave_locations_y[selected_wave] = grid_length-mouse_y;
+	    }
+	    if(key == 'j'){
+	    	damping_multiplier+=0.0001;
+	    }
+	    if(key == 'k'){
+	    	damping_multiplier-=0.0001;
+	    }
+	    if(key == 'n'){
+	    	num_waves++;
+	    }
+	    if(key == ','){
+	    	wave_periods[selected_wave] += 0.05;
+	    }
+	    key = '`';
     	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	    glLoadIdentity();
-	    for(int x=0;x<grid_width;x++){//y
-	    	for(int y=0;y<grid_length;y++){//x
+	    for(int x=0;x<grid_width;x+=grid_density){//y
+	    	for(int y=0;y<grid_length;y+=grid_density){//x
 	    		float amplitude = 0;
 	    		for(int wave = 0;wave<num_waves;wave++){
 	    			float distance = pow(wave_locations_x[wave]-x,2)+pow(wave_locations_y[wave]-y,2);
-	    			if(distance < pow(t*10.0,2)*wave_speed){
-	    				amplitude += sin(t*wave_frequencies[wave]+wave_phases[wave])*sin(sqrtf(distance)*wave_periods[wave])*(1.0/(damping_multiplier*distance)*amplitude_multiplier); //* for some cool patterns
+	    			if(distance < t*wave_speed){
+	    				amplitude += sin(t*wave_frmequencies[wave]+wave_phases[wave])*sin(sqrtf(distance)*wave_periods[wave])*(1.0/(damping_multiplier*distance)*amplitude_multiplier); //* for some cool patterns
 	    			}
 	        	}
-	        	if(amplitude > 50){
-	        		glColor3f(0.0f,amplitude/2000.0,0.0f);
+	        	if(amplitude > shading_threshold){
+	        		glColor3f(0.0f,amplitude/shading_multiplier,0.0f);
 	        	}
 	        	else if(amplitude > 0){//amplitude/100.0,0.0f,
 	        		glColor3f(0.0f,0.0f,amplitude);
 	        	}
 	        	else{
 	        		//continue;
-	        		glColor3f(-amplitude/30.0,0.0f,0.0f);
+	        		glColor3f(-amplitude/shading_multiplier,0.0f,0.0f);
 	        	}
 	        	drawRect(x*pixel_size,y*pixel_size,pixel_size,pixel_size);
 	        }
@@ -140,11 +189,9 @@ int main(int argc, char** argv){
 	    glutSwapBuffers();
 		update(0);
 		t+=timestep;
-		if(t == 2){
-
-		}
+		glutMainLoopEvent();
 		//printf("%i\n",(int)floor(t/timestep));
-		TakeScreenshot(t);
+		//TakeScreenshot(t);
 		//break;
 	}
 }
